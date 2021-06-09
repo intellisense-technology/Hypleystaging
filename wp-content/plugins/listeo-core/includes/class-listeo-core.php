@@ -785,6 +785,10 @@ class Listeo_Core {
 		if ( ! wp_next_scheduled( 'listeo_core_check_for_new_messages' ) ) {
 			wp_schedule_event( time(), '5min', 'listeo_core_check_for_new_messages' );
 		}
+		
+		if ( ! wp_next_scheduled( 'listeo_core_send_new_reminder' ) ) {
+			wp_schedule_event( time(), '5min', 'listeo_core_send_new_reminder' );
+		}
 
 		if ( ! wp_next_scheduled( 'listeo_core_check_messages_from_email' ) ) {
 			wp_schedule_event( time(), '5min', 'listeo_core_check_messages_from_email' );
