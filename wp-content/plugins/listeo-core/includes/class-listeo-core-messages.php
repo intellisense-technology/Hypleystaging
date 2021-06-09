@@ -19,6 +19,7 @@ class Listeo_Core_Messages {
         add_action( 'listeo_core_check_messages_from_email', array( $this, 'check_messages_from_email' ) );
         add_action( 'wp_ajax_listeo_create_offer', array( $this, 'listeo_create_offer' ) );
         add_action( 'wp_ajax_send_unverify_listing_msg', array( $this, 'send_unverify_listing_msg' ) );
+	add_action( 'listeo_core_send_new_reminder', array( $this, 'send_new_reminder' ) );
 
         
 	}
@@ -212,6 +213,55 @@ class Listeo_Core_Messages {
         return $id;
     }
 	
+	public function send_new_reminder()
+        {
+            global $wpdb;
+           
+            $hours12 = 12*60*60;
+            $hours24 = 24*60*60;
+            $hours30 = 30*60*60;
+            
+            
+            $curretime = current_time('timestamp');
+                            
+            $query = "SELECT cc.*,cm.*, ($curretime - cc.`last_update`) as secs FROM `wp_7JYhc1_listeo_core_conversations` cc LEFT JOIN `wp_7JYhc1_listeo_core_messages` cm on (cc.id = cm.conversation_id  and 
+		cm.id = (Select Max(cm2.id)
+               From `wp_7JYhc1_listeo_core_messages`As cm2
+               Where cm2.conversation_id = cm.conversation_id))  where ( cc.read_user_1 = 0 || cc.read_user_2 = 0 ) and cc.`reminder_count`<3 HAVING secs > CASE WHEN cc.`reminder_count` = 0 THEN  $hours12 WHEN cc.`reminder_count` = 1 THEN $hours24  ELSE $hours30 END";
+             
+             $result = $wpdb->get_results($query);
+            
+             foreach($result as $row)
+             {
+                 
+                if($row->read_user_1 == 0)
+                {
+                    $reciver_id =  $row->user_1;
+                    $sender_id = $row->user_2;
+                    
+                }else
+                {
+                    $reciver_id =  $row->user_2;
+                    $sender_id = $row->user_1;
+                }
+                
+                $mess_arr['conversation_id'] = $row->conversation_id;
+                $mess_arr['sender_id'] = $sender_id;
+                $mess_arr['message'] = $row->message;
+                $mess_arr['recipient'] = $reciver_id;
+                
+                $reminder_count = $row->reminder_count+1;
+                
+                $this->reminder_new_message($mess_arr); 
+                
+                $result  = $wpdb->update( 
+                $wpdb->prefix . 'listeo_core_conversations', 
+                array('reminder_count' => $reminder_count), 
+                array( 'id' => $row->conversation_id) 
+                );
+             }
+
+        }
 	
 	public  function reminder_new_message($args)  {
 
@@ -909,7 +959,8 @@ class Listeo_Core_Messages {
 
         $result  = $wpdb->update( 
             $wpdb->prefix . 'listeo_core_conversations', 
-            array( 'last_update' => current_time( 'timestamp' ) ), 
+            array( 'last_update' => current_time( 'timestamp' ),
+                   'reminder_count' => 0), 
             array( 'id' => $conversation ) 
         );
         
